@@ -1,0 +1,7 @@
+[Usage]
+
+gen_header source-file
+
+[Description]
+
+Generate header automatically.
