@@ -12,14 +12,9 @@ Options:
 
 [Requirement]
 
-python
-ctags
-g++
-
-[Notice]
-
-This tool use file "gen_header_database", "gen_header_tmp.cpp", "TAGS".
-So, you cannot use such a filename.
+python      (http://www.python.org/)
+GNU GLOBAL  (http://www.gnu.org/software/global/global.html)
+g++         (http://gcc.gnu.org/)
 
 [Example]
 
@@ -28,7 +23,10 @@ $ ./gen_header --generate_database -a iostream vector list map algorithm
 $ cat REP.h
 #define REP(i,n) for(int i = 0; i < (n); i++)
 
-$ ./gen_header --generate_inline_database -a REP.h
+$ cat ll.h
+typedef long long ll;
+
+$ ./gen_header --generate_inline_database -a REP.h ll.h
 
 $ cat test.cpp
 using namespace std;
@@ -75,5 +73,21 @@ int main(){
   list<int> lst;
   lst.push_back(0);
   sort(lst.begin(), lst.end());
+  return 0;
+}
+
+$ cat test3.cpp
+int main(){
+  ll a;
+  return 0;
+}
+
+$ ./gen_header test3.cpp
+
+$ cat test3.cpp
+typedef long long ll;
+
+int main(){
+  ll a;
   return 0;
 }
