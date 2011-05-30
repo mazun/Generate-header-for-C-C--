@@ -1,0 +1,327 @@
+#!/usr/bin/env python
+# coding: UTF-8
+
+# config
+database = "gen_header_database"
+
+
+import sys
+import commands
+from copy import deepcopy
+from heapq import heappush, heappop
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
+class PriorityQueue(object):
+    def __init__(self):
+        self.queue = []
+    def push(self, value):
+        heappush(self.queue, value)
+    def pop(self):
+        return heappop(self.queue)
+    def __len__(self):
+        return len(self.queue)
+    def __contains__(self, item):
+        return item in self.queue
+
+def unique (ls):
+    ret = []
+    if len(ls) == 0:
+        return ret
+
+    ret.append(ls[0])
+    ls.sort()
+
+    for i in range(len(ls) - 1):
+        if ls[i + 1] != ls[i]:
+            ret.append(ls[i + 1])
+
+    return ret
+
+def save_database (dictionary, flag):
+    fp = open(database, flag)
+    fp.write(json.dumps(dictionary))
+    fp.close()
+
+def load_database ():
+    return json.load(open(database, "r"))
+
+def get_tokens(filename):
+    split_word = [" ", "\t", "<", ">", "{", "}", "[", "]", "(", ")", ";", "\r", "\n", ":", "#", ","]
+
+    tokens = []
+
+    for line in open(filename):
+        tokens.append(line)
+    for sp in split_word:
+        new_tokens = []
+        for token in tokens:
+            for t in token.split(sp):
+                new_tokens.append(t)
+        tokens = new_tokens
+        if sp in tokens:
+            tokens.remove(sp)
+
+    if "" in tokens:
+        tokens.remove("")
+
+    return unique(tokens)
+
+def gen_graph(tokens, dictionary):
+    ret = []
+    used_token = []
+    for i in range(len(dictionary) + len(tokens)):
+        ret.append([])
+
+    tcnt = 0
+    for t in tokens:
+        dcnt = 0
+        for d in dictionary:
+            if (t in dictionary[d][1]):
+                rev = len(ret[tcnt + len(dictionary)])
+                org = len(ret[dcnt])
+
+                ret[tcnt + len(dictionary)].append([dcnt, 0, 0, org])
+                ret[dcnt].append([tcnt + len(dictionary), 1, 0, rev])
+                used_token.append(t)
+            dcnt = dcnt + 1
+        tcnt = tcnt + 1
+
+    source = len(ret)
+    ret.append([])
+    dist   = len(ret)
+    ret.append([])
+
+    for dcnt in range(len(dictionary)):
+        rev = len(ret[dcnt])
+        org = len(ret[source])
+
+        ret[source].append([dcnt, 100000, 1, rev])
+        ret[dcnt].append([source, 0, 0, org])
+
+    for tcnt in range(len(tokens)):
+        rev = len(ret[tcnt + len(dictionary)])
+        org = len(ret[dist])
+
+        ret[tcnt + len(dictionary)].append([dist, 1, 0, org])
+        ret[dist].append([tcnt + len(dictionary), 0, 0, rev])
+
+    used_token = unique(used_token)
+
+    return (ret, len(used_token))
+
+def min_cost_flow(graph, f):
+    inf = 10000
+    ret = 0
+    v = len(graph)
+
+    s = v - 2
+    t = v - 1
+
+    h = []
+    prevv = []
+    preve = []
+    for i in range(v):
+        h.append(0)
+        prevv.append(0)
+        preve.append(0)
+  
+    while f > 0:
+        # Dijkstra method
+        pq = PriorityQueue()
+        dist = []
+        for i in range(v):
+            dist.append(inf)
+        dist[s] = 0
+        pq.push((0, s))
+
+        while len(pq) > 0:
+            (dd, vv) = pq.pop()
+            if (dist[vv] < dd):
+                continue
+
+            for i in range(len(graph[vv])):
+                edge = graph[vv][i]
+                to   = edge[0]
+                cap  = edge[1]
+                cost = edge[2]
+                rev  = edge[3]
+
+                if graph[to][rev][1] > 0 and cap > 0:
+                    cost = 0
+                
+                if (cap > 0) and (dist[to] > dist[vv] + cost + h[vv] - h[to]):
+                    dist[to] = dist[vv] + cost + h[vv] - h[to]
+                    prevv[to] = vv
+                    preve[to] = i
+                    pq.push((dist[to], to))
+
+        if dist[t] == inf:
+            return -1
+
+        for vv in range(v):
+            h[vv] = h[vv] + dist[vv]
+
+        d = f
+        vv = t
+        while vv != s:
+            d  = min(d, graph[prevv[vv]][preve[vv]][1])
+            vv = prevv[vv]
+
+        f = f - d
+        ret = ret + d * h[t]
+        
+        vv = t
+        while vv != s:
+            graph[prevv[vv]][preve[vv]][1] = graph[prevv[vv]][preve[vv]][1] - d
+            rev = graph[prevv[vv]][preve[vv]][3]
+            graph[vv][rev][1] = graph[vv][rev][1] + d
+            vv = prevv[vv]
+            
+    return ret
+
+def include(graph, org_graph, dictionary):
+    uses = []
+    for i in range(len(dictionary)):
+        if graph[i] != org_graph[i]:
+            uses.append(i)
+
+    ret = []
+    i = 0
+    for d in dictionary:
+        if i in uses:
+            ret.append(d)
+        i = i + 1
+
+    return ret
+    
+if __name__ == '__main__':
+
+    argv = sys.argv
+    argc = len(argv)
+
+    if ("-h" in argv) or ("--help" in argv) or (argc == 1):
+        ###
+        # Print Usage
+        ###
+        
+        print "Usage: " + argv[0] + " filename"
+        print "       " + argv[0] + " --generate_database [option] headers"
+        print "       " + argv[0] + " --generate_inline_database [option] headers"
+        print "Options:"
+        print "  " + "-a" + "\t" + "Add header to exisiting database"
+        
+    elif (argv[1] == "--generate_database") or (argv[1] == "--generate_inline_database"):
+        ###
+        # Generate database file
+        ###
+
+        files = argv[2:]
+        tmp_filename = "gen_header_tmp.cpp"
+        inline = argv[1] == "--generate_inline_database"
+
+        if("-a" in files):
+            flag = "a"
+            files.remove("-a")
+            
+            try:
+                dictionary = load_database()
+            except IOError:
+                dictionary = {}
+        else:
+            flag = "w"
+            dictionary = {}
+            
+
+        for file in files:
+            # Generate tmp files merely includes header file
+            fp = open(tmp_filename, "w");
+            fp.write("#define extern\n")
+            fp.write("#include \"" + file + "\"\n")
+            fp.close()
+
+            # Compile tmp file with -E and -dN option
+            so = commands.getstatusoutput("g++ -E -dN " + tmp_filename)
+            status = so[0]
+            output = so[1]
+            
+            if status != 0:
+                print "An error occuerfed in processing (g++ -E -dN " + file + ")"
+                exit()
+
+            fp = open(tmp_filename, "w");
+            fp.write(output)
+            fp.close()
+        
+            # Analyze header file using ctags
+            so = commands.getstatusoutput("ctags " + tmp_filename)
+            status = so[0]
+            output = so[1]
+
+            if status != 0:
+                print "An error may occurrd in processing (ctags " + file + ")"
+                exit()
+
+            symbols = []
+            for line in open("TAGS", "r"):
+                split  = line.split("\t")
+                symbol = split[0]
+                if len(split) > 4:
+                    classp = split[4]
+                else:
+                    classp = ""
+
+                if classp[0:6] != "class:":
+                    symbols.append(symbol)
+
+            dictionary[file] = (inline, unique(symbols))
+
+
+        commands.getstatusoutput("rm TAGS " + tmp_filename)
+        save_database(dictionary, "w")
+
+    else:
+        ###
+        # Normal mode
+        ###
+
+        dictionary = load_database()
+
+        filename = argv[1]
+
+        # Get tokens
+        tokens = get_tokens(filename)
+
+        (graph, f)  = gen_graph(tokens, dictionary)
+        org_graph = deepcopy(graph)
+
+        use = min_cost_flow(graph, f)
+
+        includes = include(graph, org_graph, dictionary)
+
+        as_str_inc = ""
+        as_str_inl = ""
+
+        contents = open(filename, "r").read()
+
+        for inc in includes:
+            if dictionary[inc][0]:
+                # Inline
+                s = as_str_inl + open(inc, "r").read()
+                if contents.find(s) == -1:
+                    as_str_inl = as_str_inl + s + "\n"
+            else:
+                s = "#include <" + inc + ">"
+                if contents.find(s) == -1:
+                    as_str_inc = as_str_inc + s + "\n"
+    
+        # print as_str_inc
+        # print as_str_inl
+
+        fp = open(filename, "w")
+        fp.write(as_str_inc)
+        fp.write(as_str_inl)
+        fp.write(contents)
