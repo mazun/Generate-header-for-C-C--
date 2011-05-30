@@ -32,9 +32,9 @@ def unique (ls):
     if len(ls) == 0:
         return ret
 
-    ret.append(ls[0])
     ls.sort()
 
+    ret.append(ls[0])
     for i in range(len(ls) - 1):
         if ls[i + 1] != ls[i]:
             ret.append(ls[i + 1])
