@@ -10,6 +10,11 @@ Usage: ./gen_header filename
 Options:
   -a    Add header to exisiting database
 
+[Requirement]
+
+python
+ctags
+
 [Notice]
 
 This tool use file "gen_header_database", "gen_header_tmp.cpp", "TAGS".
