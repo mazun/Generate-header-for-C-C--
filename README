@@ -1,7 +1,73 @@
-[Usage]
-
-gen_header source-file
-
 [Description]
 
-Generate header automatically.
+Generate header of C++ file automatically.
+
+[Usage]
+
+Usage: ./gen_header filename
+       ./gen_header --generate_database [option] headers
+       ./gen_header --generate_inline_database [option] headers
+Options:
+  -a    Add header to exisiting database
+
+[Notice]
+
+This tool use file "gen_header_database", "gen_header_tmp.cpp", "TAGS".
+So, you cannot such a filename.
+
+[Example]
+
+$ ./gen_header --generate_database -a iostream vector list map algorithm
+
+$ cat REP.h
+#define REP(i,n) for(int i = 0; i < (n); i++)
+
+$ ./gen_header --generate_inline_database -a REP.h
+
+$ cat test.cpp
+using namespace std;
+
+int main(){
+  vector<int> a;
+  a.push_back(1);
+
+  REP(i, 1) cout << a[i] << endl;
+}
+
+$ ./gen_header test.cpp
+
+$ cat test.cpp
+#include <iostream>
+#include <vector>
+#define REP(i,n) for(int i = 0; i < (n); i++)
+
+using namespace std;
+
+int main(){
+  vector<int> a;
+  a.push_back(1);
+
+  REP(i, 1) cout << a[i] << endl;
+}
+
+$ cat test2.cpp
+using namespace std;
+
+int main(){
+  list<int> lst;
+  lst.push_back(0);
+  sort(lst.begin(), lst.end());
+  return 0;
+}
+
+$ cat test2.cpp
+#include <algorithm>
+#include <list>
+using namespace std;
+
+int main(){
+  list<int> lst;
+  lst.push_back(0);
+  sort(lst.begin(), lst.end());
+  return 0;
+}
