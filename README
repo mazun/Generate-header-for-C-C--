@@ -18,7 +18,7 @@ ctags
 [Notice]
 
 This tool use file "gen_header_database", "gen_header_tmp.cpp", "TAGS".
-So, you cannot such a filename.
+So, you cannot use such a filename.
 
 [Example]
 
