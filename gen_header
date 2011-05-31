@@ -6,13 +6,11 @@ database = "gen_header_database"
 tmp_dir  = "gen_header_tmp"
 tmp_filename_nondir = "gen_header_tmp.cpp"
 
-
 import sys
 import commands
 import os
 import shutil
 from copy import deepcopy
-from heapq import heappush, heappop
 
 try:
     import json
@@ -20,18 +18,6 @@ except ImportError:
     import simplejson as json
 
 tmp_filename = tmp_dir + os.sep + tmp_filename_nondir
-
-class PriorityQueue(object):
-    def __init__(self):
-        self.queue = []
-    def push(self, value):
-        heappush(self.queue, value)
-    def pop(self):
-        return heappop(self.queue)
-    def __len__(self):
-        return len(self.queue)
-    def __contains__(self, item):
-        return item in self.queue
 
 def unique (ls):
     ret = []
@@ -47,16 +33,22 @@ def unique (ls):
 
     return ret
 
-def save_database (dictionary, flag):
-    fp = open(database, flag)
+def save_database (dictionary):
+    fp = open(database, "w")
     fp.write(json.dumps(dictionary))
     fp.close()
 
 def load_database ():
-    return json.load(open(database, "r"))
+    try:
+        return json.load(open(database, "r"))
+    except IOError:
+        return {}
 
 def get_tokens(filename):
-    split_word = [" ", "\t", "<", ">", "{", "}", "[", "]", "(", ")", ";", "\r", "\n", ":", "#", ",", "+", "*", "/", "-", "|", "&", "^", "~", "."]
+    split_word = [" ", "\t", "<", ">", "{", "}", "[", "]",\
+                      "(", ")", ";", "\r", "\n", ":", "#",\
+                      ",", "+", "*", "/", "-", "|", "&",\
+                      "^", "~", "."]
 
     tokens = []
 
@@ -121,6 +113,9 @@ def solve_graph(graph, dictionary):
 
     while cnt != m:
         use = len_max_id(graph)
+        if len(graph[use]) == 0:
+            break
+
         ret.append(use)
         cnt = cnt + len(graph[use])
 
@@ -137,6 +132,12 @@ def solve_graph(graph, dictionary):
         dcnt = dcnt + 1
 
     return ans
+
+def n_str(n, str):
+    ret = ""
+    for i in range(n):
+        ret = ret + str
+    return ret
 
 def process_class(str):
     ret = deepcopy(str)
@@ -173,6 +174,53 @@ def process_class(str):
             pos = pos1
     return ret
 
+def exit_with(mes):
+    if mes != "":
+        print mes
+    shutil.rmtree(tmp_dir)
+    exit()
+
+def gen_database(filename):
+    # Compile tmp file with -E and -dN option
+    (status, output) = commands.getstatusoutput("g++ -E -dN " + tmp_filename)
+    
+    if status != 0:
+        exit_with("An error occuerfed in processing (g++ -E -dN " + file + ")")
+
+    open(tmp_filename, "w").write(process_class(output))
+
+    # Analyze header file using ctags
+    (status, output) = commands.getstatusoutput("cd " + tmp_dir + "; gtags; global -f " + tmp_filename_nondir)
+    
+    if status != 0:
+        exit_with("An error may occurrd in processing (gtags " + file + ")")
+        
+    symbols = []
+    for line in output.split("\n"):
+        symbols.append(line.split(" ")[0])
+
+    return unique(symbols)
+
+def minus(ls1, ls2):
+    # ret = { s | (s \in ls1) and (s \notin ls2) }
+    ls1.sort()
+    ls2.sort()
+
+    ret = []
+
+    p1 = 0
+    p2 = 0
+
+    while p1 != len(ls1):
+        word = ls1[p1]
+        while (p2 < len(ls2) - 1) and (word > ls2[p2]):
+            p2 = p2 + 1
+        if word != ls2[p2]:
+            ret.append(word)
+        p1 = p1 + 1
+
+    return ret
+
 if __name__ == '__main__':
 
     argv = sys.argv
@@ -188,6 +236,14 @@ if __name__ == '__main__':
         print "       " + argv[0] + " --generate_inline_database [option] headers"
         print "Options:"
         print "  " + "-a" + "\t" + "Add header to exisiting database"
+        print ""
+        print "Database information:"
+
+        print " Name" + n_str(20 - len("Name"), " ") + "Inline"
+        print "-----" + n_str(20 - len("Name"), "-") + "------"
+        dictionary = load_database()
+        for d in dictionary:
+            print " " + d + n_str(20 - len(d), " ") + str(dictionary[d][0])
 
     elif (argv[1] == "--generate_database") or (argv[1] == "--generate_inline_database"):
         ###
@@ -198,15 +254,9 @@ if __name__ == '__main__':
         inline = argv[1] == "--generate_inline_database"
 
         if("-a" in files):
-            flag = "a"
             files.remove("-a")
-
-            try:
-                dictionary = load_database()
-            except IOError:
-                dictionary = {}
+            dictionary = load_database()
         else:
-            flag = "w"
             dictionary = {}
 
         # Make tmp directory
@@ -215,48 +265,21 @@ if __name__ == '__main__':
         except OSError:
             ""
 
+        # compile empty file
+        open(tmp_filename, "w")
+        empty_symbols = gen_database(tmp_filename)
+
         for file in files:
             # Generate tmp files merely includes header file
-            fp = open(tmp_filename, "w");
             if inline:
-                fp.write("#include \"../" + file + "\"\n")
+                open(tmp_filename, "w").write("#include \"../" + file + "\"\n")
             else:
-                fp.write("#include \"" + file + "\"\n")
-            fp.close()
+                open(tmp_filename, "w").write("#include \"" + file + "\"\n")
 
-            # Compile tmp file with -E and -dN option
-            so = commands.getstatusoutput("g++ -E -dN " + tmp_filename)
-            status = so[0]
-            output = so[1]
-
-            if status != 0:
-                print "An error occuerfed in processing (g++ -E -dN " + file + ")"
-                shutil.rmtree(tmp_dir)
-                exit()
-
-            fp = open(tmp_filename, "w");
-            fp.write(process_class(output))
-            fp.close()
-
-            # Analyze header file using ctags
-            so = commands.getstatusoutput("cd " + tmp_dir + "; gtags; global -f " + tmp_filename_nondir)
-            status = so[0]
-            output = so[1]
-
-            if status != 0:
-                print "An error may occurrd in processing (gtags " + file + ")"
-                shutil.rmtree(tmp_dir)
-                exit()
-
-            # symbols = [file]
-            symbols = []
-            for line in output.split("\n"):
-                symbols.append(line.split(" ")[0])
-
-            dictionary[file] = (inline, unique(symbols))
+            dictionary[file] = (inline, minus(gen_database(tmp_filename), empty_symbols))
 
         shutil.rmtree(tmp_dir)
-        save_database(dictionary, "w")
+        save_database(dictionary)
 
     else:
         ###
@@ -266,7 +289,8 @@ if __name__ == '__main__':
         dictionary = load_database()
         filename = argv[1]
 
-        # For inline, we must do same thing 2 times.
+        # As the code inline expanding may depend on other header,
+        # we should do same thing twice.
         for iteration in range(2):
             # Get tokens
             tokens = get_tokens(filename)
@@ -288,8 +312,4 @@ if __name__ == '__main__':
                     if contents.find(s) == -1:
                         as_str_inc = as_str_inc + s + "\n"
 
-            fp = open(filename, "w")
-            fp.write(as_str_inc)
-            fp.write(as_str_inl)
-            fp.write(contents)
-            fp.close()
+            open(filename, "w").write(as_str_inc + as_str_inl + contents)
