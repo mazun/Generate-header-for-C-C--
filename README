@@ -7,6 +7,7 @@ Generate header of C++ file automatically.
 Usage: ./gen_header filename
        ./gen_header --generate_database [option] headers
        ./gen_header --generate_inline_database [option] headers
+       ./gen_header --remove_database headers
 Options:
   -a    Add header to exisiting database
 

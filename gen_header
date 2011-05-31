@@ -34,9 +34,7 @@ def unique (ls):
     return ret
 
 def save_database (dictionary):
-    fp = open(database, "w")
-    fp.write(json.dumps(dictionary))
-    fp.close()
+    open(database, "w").write(json.dumps(dictionary))
 
 def load_database ():
     try:
@@ -44,7 +42,7 @@ def load_database ():
     except IOError:
         return {}
 
-def get_tokens(filename):
+def get_tokens (filename):
     split_word = [" ", "\t", "<", ">", "{", "}", "[", "]",\
                       "(", ")", ";", "\r", "\n", ":", "#",\
                       ",", "+", "*", "/", "-", "|", "&",\
@@ -68,7 +66,7 @@ def get_tokens(filename):
 
     return unique(tokens)
 
-def gen_graph(tokens, dictionary):
+def gen_graph (tokens, dictionary):
     ret = []
     for i in range(len(dictionary)):
         ret.append([])
@@ -84,14 +82,14 @@ def gen_graph(tokens, dictionary):
 
     return ret
 
-def max_element(graph):
+def max_element (graph):
     ret = 0
     for g in graph:
         for gg in g:
             ret = max(ret, gg)
     return ret
 
-def len_max_id(graph):
+def len_max_id (graph):
     mx = -1
     for i in range(len(graph)):
         g = graph[i]
@@ -101,7 +99,7 @@ def len_max_id(graph):
     return ret
 
 # Solve problem by greedy
-def solve_graph(graph, dictionary):
+def solve_graph (graph, dictionary):
     n = len(graph)
     tmp = []
     for g in graph:
@@ -133,13 +131,13 @@ def solve_graph(graph, dictionary):
 
     return ans
 
-def n_str(n, str):
+def n_str (n, str):
     ret = ""
     for i in range(n):
         ret = ret + str
     return ret
 
-def process_class(str):
+def process_class (str):
     ret = deepcopy(str)
 
     pos = 0
@@ -201,7 +199,7 @@ def gen_database(filename):
 
     return unique(symbols)
 
-def minus(ls1, ls2):
+def minus (ls1, ls2):
     # ret = { s | (s \in ls1) and (s \notin ls2) }
     ls1.sort()
     ls2.sort()
@@ -234,6 +232,7 @@ if __name__ == '__main__':
         print "Usage: " + argv[0] + " filename"
         print "       " + argv[0] + " --generate_database [option] headers"
         print "       " + argv[0] + " --generate_inline_database [option] headers"
+        print "       " + argv[0] + " --remove_database headers"
         print "Options:"
         print "  " + "-a" + "\t" + "Add header to exisiting database"
         print ""
@@ -257,6 +256,11 @@ if __name__ == '__main__':
             files.remove("-a")
             dictionary = load_database()
         else:
+            if os.path.isfile(database):
+                # Ask if remove existing file
+                yn = raw_input("Remove existing database (y/N): ")
+                if yn != "y" or yn != "Y":
+                    exit()
             dictionary = {}
 
         # Make tmp directory
@@ -279,6 +283,20 @@ if __name__ == '__main__':
             dictionary[file] = (inline, minus(gen_database(tmp_filename), empty_symbols))
 
         shutil.rmtree(tmp_dir)
+        save_database(dictionary)
+
+    elif argv[1] == "--remove_database":
+        ###
+        # Remove Database
+        ###
+
+        dictionary = load_database()
+        for file in argv[2:]:
+            if file in dictionary:
+                print "Remove " + file + ": ok." 
+                del dictionary[file]
+            else:
+                print "Remove " + file + ": no such file in database."                 
         save_database(dictionary)
 
     else:
