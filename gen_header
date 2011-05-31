@@ -101,21 +101,16 @@ def len_max_id (graph):
 # Solve problem by greedy
 def solve_graph (graph, dictionary):
     n = len(graph)
-    tmp = []
-    for g in graph:
-        for gg in g:
-            tmp.append(gg)
-    m = len(unique(tmp))
     ret = []
-    cnt = 0
 
-    while cnt != m:
+    # tokens = get_tokens("1004.cpp")
+
+    while True:
         use = len_max_id(graph)
         if len(graph[use]) == 0:
             break
 
         ret.append(use)
-        cnt = cnt + len(graph[use])
 
         for g in graph[use]:
             for gg in graph:
@@ -258,7 +253,7 @@ if __name__ == '__main__':
         else:
             if os.path.isfile(database):
                 # Ask if remove existing file
-                yn = raw_input("Remove existing database (y/N): ")
+                yn = raw_input("Remove existing database? (y/N): ")
                 if yn != "y" or yn != "Y":
                     exit()
             dictionary = {}
