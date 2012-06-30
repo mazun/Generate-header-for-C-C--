@@ -42,16 +42,14 @@ def load_database ():
     except IOError:
         return {}
 
-def get_tokens (filename):
+def get_tokens (filecontents):
     split_word = [" ", "\t", "<", ">", "{", "}", "[", "]",\
                       "(", ")", ";", "\r", "\n", ":", "#",\
                       ",", "+", "*", "/", "-", "|", "&",\
                       "^", "~", "."]
 
-    tokens = []
+    tokens = filecontents.split("\n")
 
-    for line in open(filename):
-        tokens.append(line)
     for sp in split_word:
         new_tokens = []
         for token in tokens:
@@ -90,6 +88,7 @@ def max_element (graph):
     return ret
 
 def len_max_id (graph):
+    ret = 0
     mx = -1
     for i in range(len(graph)):
         g = graph[i]
@@ -176,7 +175,7 @@ def exit_with(mes):
 def gen_database(filename):
     # Compile tmp file with -E and -dN option
     (status, output) = commands.getstatusoutput("g++ -E -dN " + tmp_filename)
-    
+
     if status != 0:
         exit_with("An error occuerfed in processing (g++ -E -dN " + file + ")")
 
@@ -184,10 +183,10 @@ def gen_database(filename):
 
     # Analyze header file using ctags
     (status, output) = commands.getstatusoutput("cd " + tmp_dir + "; gtags; global -f " + tmp_filename_nondir)
-    
+
     if status != 0:
         exit_with("An error may occurrd in processing (gtags " + file + ")")
-        
+
     symbols = []
     for line in output.split("\n"):
         symbols.append(line.split(" ")[0])
@@ -224,12 +223,13 @@ if __name__ == '__main__':
         # Print Usage
         ###
 
-        print "Usage: " + argv[0] + " filename"
+        print "Usage: " + argv[0] + " [-p] filename"
         print "       " + argv[0] + " --generate_database [option] headers"
         print "       " + argv[0] + " --generate_inline_database [option] headers"
         print "       " + argv[0] + " --remove_database headers"
         print "Options:"
         print "  " + "-a" + "\t" + "Add header to exisiting database"
+        print "  " + "-p" + "\t" + "Print additional code only"
         print ""
         print "Database information:"
 
@@ -288,32 +288,41 @@ if __name__ == '__main__':
         dictionary = load_database()
         for file in argv[2:]:
             if file in dictionary:
-                print "Remove " + file + ": ok." 
+                print "Remove " + file + ": ok."
                 del dictionary[file]
             else:
-                print "Remove " + file + ": no such file in database."                 
+                print "Remove " + file + ": no such file in database."
         save_database(dictionary)
-
     else:
         ###
-        # Normal mode
+			  # Normal mode
         ###
-
         dictionary = load_database()
-        filename = argv[1]
+        if not len(dictionary):
+            print "No database"
+            quit()
+
+        if argv[1] == "-p":
+            print_mode = True
+            filename = argv[2]
+            if filename.split(".")[-1] != "cpp":
+                quit()
+        else:
+            print_mode = False
+            filename = argv[1]
 
         # As the code inline expanding may depend on other header,
         # we should do same thing twice.
+        as_str_inc = ""
+        as_str_inl = ""
+        o_contents = open(filename, "r").read()
+
         for iteration in range(2):
             # Get tokens
-            tokens = get_tokens(filename)
+            contents = as_str_inc + as_str_inl + o_contents
+            tokens = get_tokens(contents)
 
             includes = solve_graph(gen_graph(tokens, dictionary), dictionary)
-
-            as_str_inc = ""
-            as_str_inl = ""
-
-            contents = open(filename, "r").read()
 
             for inc in includes:
                 if dictionary[inc][0]: # Inline?
@@ -325,4 +334,8 @@ if __name__ == '__main__':
                     if contents.find(s) == -1:
                         as_str_inc = as_str_inc + s + "\n"
 
-            open(filename, "w").write(as_str_inc + as_str_inl + contents)
+        if print_mode:
+            if len(as_str_inc) or len(as_str_inl):
+                print as_str_inc + as_str_inl,
+        else:
+            open(filename, "w").write(as_str_inc + as_str_inl + o_contents)
